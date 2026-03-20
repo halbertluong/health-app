@@ -6,6 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@health-app/types", "@health-app/validators", "@health-app/utils"],
+  output: "standalone",
   experimental: {
     // Required for pnpm monorepo deployments on Vercel — ensures file tracing
     // resolves workspace packages relative to the monorepo root.
