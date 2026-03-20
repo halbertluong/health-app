@@ -6,26 +6,32 @@
  */
 import fs from "fs";
 import path from "path";
-import { glob } from "fs/promises";
 
 const serverDir = path.resolve(".next/server/app");
-
-// Find all compiled page.js files
-async function* findPages(dir) {
-  for await (const f of await fs.promises.opendir(dir, { recursive: true })) {
-    if (f.name === "page.js") {
-      yield path.join(f.path, f.name);
-    }
-  }
-}
 
 const EMPTY_MANIFEST =
   'self.__RSC_MANIFEST=(self.__RSC_MANIFEST||{});' +
   'self.__RSC_MANIFEST["/"]=' +
   '{"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{}};';
 
+function findPages(dir, pages = []) {
+  if (!fs.existsSync(dir)) return pages;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      findPages(fullPath, pages);
+    } else if (entry.name === "page.js") {
+      pages.push(fullPath);
+    }
+  }
+  return pages;
+}
+
+const pages = findPages(serverDir);
 let created = 0;
-for await (const pageJs of findPages(serverDir)) {
+
+for (const pageJs of pages) {
   const dir = path.dirname(pageJs);
   const manifestPath = path.join(dir, "page_client-reference-manifest.js");
   if (!fs.existsSync(manifestPath)) {
