@@ -16,3 +16,4 @@ android/.gradle
 
 # Supabase
 supabase/.temp
+.vercel
