@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getWeekStart, todayString, sumPlannedMacros, sumActualMacros } from "@health-app/utils";
 import Link from "next/link";
 import { CalendarDays, ChefHat, ShoppingCart, Dumbbell } from "lucide-react";
+import { DashboardGreeting } from "./dashboard-greeting";
 
 export default async function DashboardPage() {
   const supabase = await createServerClient();
@@ -43,7 +44,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Good morning, {name} 👋</h1>
+        <DashboardGreeting name={name} />
         <p className="text-muted-foreground mt-1">
           {new Date(today + "T00:00:00").toLocaleDateString("en-US", {
             weekday: "long", month: "long", day: "numeric",
