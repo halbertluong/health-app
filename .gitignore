@@ -1,0 +1,18 @@
+node_modules
+.turbo
+.env
+.env.local
+.env.*.local
+dist
+.next
+out
+*.tsbuildinfo
+
+# Expo
+.expo
+ios/build
+android/build
+android/.gradle
+
+# Supabase
+supabase/.temp
