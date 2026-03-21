@@ -133,7 +133,50 @@ export function AiImportButton() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
 
-    // Insert recipe row with correct schema column names
+    // Parse ingredient lines
+    const parsedIngredients = recipe.ingredients
+      .filter(Boolean)
+      .map((line, i) => parseIngredientLine(line, i));
+
+    // Auto-calculate nutrition per ingredient
+    let nutritionData: Array<{ calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }> = [];
+    try {
+      const res = await fetch("/api/recipes/nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ingredients: parsedIngredients.map(ing => ({
+            ingredient_name: ing.ingredient_name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        nutritionData = data.ingredients;
+      }
+    } catch { /* skip nutrition if API fails */ }
+
+    const enriched = parsedIngredients.map((ing, i) => ({
+      ...ing,
+      calories: nutritionData[i]?.calories ?? null,
+      protein_g: nutritionData[i]?.protein_g ?? null,
+      carbs_g: nutritionData[i]?.carbs_g ?? null,
+      fat_g: nutritionData[i]?.fat_g ?? null,
+    }));
+
+    // Compute per-serving totals from ingredient nutrition; fall back to AI-extracted macros
+    const totals = enriched.reduce(
+      (s, ing) => ({ cal: s.cal + (ing.calories ?? 0), pro: s.pro + (ing.protein_g ?? 0), carb: s.carb + (ing.carbs_g ?? 0), fat: s.fat + (ing.fat_g ?? 0) }),
+      { cal: 0, pro: 0, carb: 0, fat: 0 }
+    );
+    const servings = Math.max(recipe.servings ?? 1, 1);
+    const calories_per_serving = totals.cal > 0 ? Math.round(totals.cal / servings) : recipe.calories_per_serving;
+    const protein_g_per_serving = totals.pro > 0 ? Math.round(totals.pro / servings * 10) / 10 : recipe.protein_g_per_serving;
+    const carbs_g_per_serving = totals.carb > 0 ? Math.round(totals.carb / servings * 10) / 10 : recipe.carbs_g_per_serving;
+    const fat_g_per_serving = totals.fat > 0 ? Math.round(totals.fat / servings * 10) / 10 : recipe.fat_g_per_serving;
+
     const { data: inserted, error: recipeError } = await supabase
       .from("recipes")
       .insert({
@@ -144,10 +187,11 @@ export function AiImportButton() {
         prep_time: recipe.prep_time,
         cook_time: recipe.cook_time,
         servings: recipe.servings ?? 1,
-        calories_per_serving: recipe.calories_per_serving,
-        protein_g_per_serving: recipe.protein_g_per_serving,
-        carbs_g_per_serving: recipe.carbs_g_per_serving,
-        fat_g_per_serving: recipe.fat_g_per_serving,
+        calories_per_serving,
+        protein_g_per_serving,
+        carbs_g_per_serving,
+        fat_g_per_serving,
+        source_url: tab === "url" && url ? url : null,
       })
       .select("id")
       .single();
@@ -158,16 +202,21 @@ export function AiImportButton() {
       return;
     }
 
-    // Insert ingredients into recipe_ingredients table
-    if (recipe.ingredients.length > 0) {
-      const ingredientRows = recipe.ingredients
-        .filter(Boolean)
-        .map((line, i) => ({
+    if (enriched.length > 0) {
+      await supabase.from("recipe_ingredients").insert(
+        enriched.map(ing => ({
           recipe_id: inserted.id,
-          ...parseIngredientLine(line, i),
-        }));
-      await supabase.from("recipe_ingredients").insert(ingredientRows);
-      // Non-fatal if this fails
+          ingredient_name: ing.ingredient_name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          sort_order: ing.sort_order,
+          grocery_category: ing.grocery_category,
+          calories: ing.calories,
+          protein_g: ing.protein_g,
+          carbs_g: ing.carbs_g,
+          fat_g: ing.fat_g,
+        }))
+      );
     }
 
     setSaving(false);

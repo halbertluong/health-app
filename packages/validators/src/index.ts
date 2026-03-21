@@ -29,7 +29,7 @@ export const CreateRecipeSchema = z.object({
   servings: z.number().positive().max(100),
   serving_size: z.string().max(100).nullable().optional(),
   is_public: z.boolean().optional(),
-  source_url: z.string().url().nullable().optional(),
+  source_url: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
   source_name: z.string().max(200).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
   rating: z.number().int().min(1).max(5).nullable().optional(),

@@ -288,24 +288,19 @@ export function RecipeKeeperImport() {
         }
       }
 
-      // Build description — append source URL if present
-      const description = [
-        r.description || null,
-        r.source_url ? `Source: ${r.source_url}` : null,
-      ].filter(Boolean).join("\n\n") || null;
-
       const { data: inserted, error: recipeError } = await supabase
         .from("recipes")
         .insert({
           user_id: user.id,
           name: r.name,
-          description,
+          description: r.description || null,
           instructions: joinInstructions(r.instructions),
           prep_time: r.prep_time,
           cook_time: r.cook_time,
           servings: r.servings ?? 1,
           calories_per_serving: r.calories_per_serving,
           image_url,
+          source_url: r.source_url || null,
         })
         .select("id")
         .single();
