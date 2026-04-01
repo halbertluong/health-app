@@ -15,12 +15,14 @@ export async function POST(request: Request) {
     ? workouts.map((w: any) => `- ${w.name} (${w.type ?? "general"}${w.duration_minutes ? `, ${w.duration_minutes}min` : ""})`).join("\n")
     : "No existing workouts — suggest a balanced beginner plan.";
 
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 1024,
-    messages: [{
-      role: "user",
-      content: `Create a ${daysPerWeek}-day workout plan for the week starting ${weekStart}.
+  let message: Awaited<ReturnType<typeof anthropic.messages.create>>;
+  try {
+    message = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
+      messages: [{
+        role: "user",
+        content: `Create a ${daysPerWeek}-day workout plan for the week starting ${weekStart}.
 
 Goal: ${goal || "general fitness"}
 
@@ -31,10 +33,23 @@ Return ONLY a JSON array, no other text. Each item:
 { "day": "YYYY-MM-DD", "workout_name": "string", "notes": "string (1 sentence tip)" }
 
 Schedule ${daysPerWeek} days across the week (Mon-Sun). Use workouts from the library where possible. If the library is empty, use common workout names that match the goal.`,
-    }],
-  });
+      }],
+    });
+  } catch (err: unknown) {
+    if (err && typeof err === "object" && "status" in err) {
+      const apiErr = err as { status: number; message?: string; error?: { message?: string } };
+      const msg = apiErr.error?.message ?? apiErr.message ?? "Anthropic API error";
+      return NextResponse.json({ error: msg }, { status: apiErr.status as number });
+    }
+    const msg = err instanceof Error ? err.message : "AI request failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 
-  const raw = (message.content[0] as any).text.trim();
+  const firstBlock = message.content[0];
+  if (!firstBlock || firstBlock.type !== "text") {
+    return NextResponse.json({ error: "Invalid AI response" }, { status: 500 });
+  }
+  const raw = firstBlock.text.trim();
   const jsonMatch = raw.match(/\[[\s\S]*\]/);
   if (!jsonMatch) return NextResponse.json({ error: "Invalid AI response" }, { status: 500 });
 

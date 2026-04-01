@@ -85,7 +85,13 @@ async function lookupNutrition(
 }
 
 export async function POST(req: NextRequest) {
-  const { ingredients } = (await req.json()) as { ingredients: IngredientInput[] };
+  let ingredients: IngredientInput[];
+  try {
+    const body = await req.json() as { ingredients?: IngredientInput[] };
+    ingredients = body.ingredients ?? [];
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   if (!Array.isArray(ingredients) || ingredients.length === 0) {
     return NextResponse.json({ ingredients: [] });
   }
