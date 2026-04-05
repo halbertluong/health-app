@@ -27,18 +27,25 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup") ||
-    request.nextUrl.pathname.startsWith("/auth") ||
-    request.nextUrl.pathname.startsWith("/api");
+  const pathname = request.nextUrl.pathname;
 
-  if (!user && !isAuthRoute) {
+  // Pages that unauthenticated users may access
+  const isPublicPage = pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api");
+
+  // Pages that should redirect authenticated users away (login/signup only — not /api)
+  const isAuthOnlyPage = pathname.startsWith("/login") ||
+    pathname.startsWith("/signup");
+
+  if (!user && !isPublicPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && isAuthOnlyPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/planner";
     return NextResponse.redirect(url);
