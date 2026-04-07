@@ -17,24 +17,27 @@ const STATUS_COLORS: Record<string, string> = {
   replaced: "bg-purple-100 text-purple-700",
 };
 
+const RECIPE_SELECT =
+  "*, recipe:recipes(id, name, image_url, servings, calories_per_serving, protein_g_per_serving, carbs_g_per_serving, fat_g_per_serving)";
+
 interface MealSlotCellProps {
   date: string;
   mealType: MealType;
-  slot: MealPlanSlotWithRecipe | undefined;
+  slots: MealPlanSlotWithRecipe[];
   userId: string;
-  onUpdated: (slot: MealPlanSlotWithRecipe | null) => void;
+  onUpdated: (slots: MealPlanSlotWithRecipe[]) => void;
 }
 
-export function MealSlotCell({ date, mealType, slot, userId, onUpdated }: MealSlotCellProps) {
+export function MealSlotCell({ date, mealType, slots, userId, onUpdated }: MealSlotCellProps) {
   const [showPicker, setShowPicker] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleRemove() {
-    if (!slot) return;
+  async function handleRemove(id: string) {
     setLoading(true);
     const supabase = createClient();
-    await supabase.from("meal_plan_slots").delete().eq("id", slot.id);
-    onUpdated(null);
+    await supabase.from("meal_plan_slots").delete().eq("id", id);
+    onUpdated(slots.filter((s) => s.id !== id));
     setLoading(false);
   }
 
@@ -42,7 +45,6 @@ export function MealSlotCell({ date, mealType, slot, userId, onUpdated }: MealSl
     setLoading(true);
     const supabase = createClient();
 
-    // Fetch recipe for macro calculation
     const { data: recipe } = await supabase
       .from("recipes")
       .select("*")
@@ -64,111 +66,124 @@ export function MealSlotCell({ date, mealType, slot, userId, onUpdated }: MealSl
       status: "planned" as const,
     };
 
-    let result;
-    if (slot) {
-      result = await supabase
+    if (editingSlotId) {
+      // Update existing slot
+      const { data } = await supabase
         .from("meal_plan_slots")
         .update(slotData)
-        .eq("id", slot.id)
-        .select("*, recipe:recipes(id, name, image_url, servings, calories_per_serving, protein_g_per_serving, carbs_g_per_serving, fat_g_per_serving)")
+        .eq("id", editingSlotId)
+        .select(RECIPE_SELECT)
         .single();
+
+      if (data) {
+        onUpdated(slots.map((s) => (s.id === editingSlotId ? (data as MealPlanSlotWithRecipe) : s)));
+      }
     } else {
-      result = await supabase
+      // Insert new slot
+      const { data } = await supabase
         .from("meal_plan_slots")
         .insert(slotData)
-        .select("*, recipe:recipes(id, name, image_url, servings, calories_per_serving, protein_g_per_serving, carbs_g_per_serving, fat_g_per_serving)")
+        .select(RECIPE_SELECT)
         .single();
-    }
 
-    if (result.data) {
-      onUpdated(result.data as MealPlanSlotWithRecipe);
+      if (data) {
+        onUpdated([...slots, data as MealPlanSlotWithRecipe]);
+      }
     }
 
     setShowPicker(false);
+    setEditingSlotId(null);
     setLoading(false);
   }
 
-  if (!slot) {
-    return (
-      <>
-        <button
-          onClick={() => setShowPicker(true)}
-          className="w-full h-full min-h-[100px] flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/30 transition-colors group"
-          disabled={loading}
-        >
-          <Plus className="h-4 w-4 group-hover:scale-110 transition-transform" />
-        </button>
-        {showPicker && (
-          <RecipePicker
-            onSelect={handleSelectRecipe}
-            onClose={() => setShowPicker(false)}
-          />
-        )}
-      </>
-    );
+  function openAdd() {
+    setEditingSlotId(null);
+    setShowPicker(true);
   }
+
+  function openEdit(id: string) {
+    setEditingSlotId(id);
+    setShowPicker(true);
+  }
+
+  const editingSlot = editingSlotId ? slots.find((s) => s.id === editingSlotId) : undefined;
 
   return (
     <>
-      <div className="p-2 h-full min-h-[100px] relative group">
-        {/* Remove button */}
-        <button
-          onClick={handleRemove}
-          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
-          disabled={loading}
-        >
-          <X className="h-3 w-3" />
-        </button>
+      <div className="p-2 h-full min-h-[100px] space-y-1">
+        {slots.map((slot) => (
+          <div key={slot.id} className="group relative">
+            {/* Remove button */}
+            <button
+              onClick={() => handleRemove(slot.id)}
+              className="absolute top-0.5 right-0.5 z-10 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+              disabled={loading}
+            >
+              <X className="h-3 w-3" />
+            </button>
 
-        {/* Status badge */}
-        <div className={cn(
-          "inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded mb-1.5",
-          STATUS_COLORS[slot.status] ?? STATUS_COLORS["planned"]
-        )}>
-          {slot.status.replace(/_/g, " ")}
-        </div>
-
-        {/* Recipe info */}
-        <button
-          onClick={() => setShowPicker(true)}
-          className="text-left w-full"
-        >
-          <div className="flex items-start gap-1.5">
-            <ChefHat className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-            <div>
-              <p className="text-xs font-medium leading-tight line-clamp-2">
-                {slot.recipe?.name ?? "Recipe removed"}
-              </p>
-              {slot.planned_servings !== 1 && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {slot.planned_servings} servings
-                </p>
+            {/* Recipe chip */}
+            <button
+              onClick={() => openEdit(slot.id)}
+              className={cn(
+                "w-full text-left rounded px-1.5 py-1 border border-transparent hover:border-muted-foreground/20 transition-colors",
               )}
-            </div>
-          </div>
-        </button>
+              disabled={loading}
+            >
+              {/* Status badge */}
+              <div className={cn(
+                "inline-flex items-center text-[10px] font-medium px-1 py-px rounded mb-1",
+                STATUS_COLORS[slot.status] ?? STATUS_COLORS["planned"]
+              )}>
+                {slot.status.replace(/_/g, " ")}
+              </div>
 
-        {/* Macros */}
-        {slot.planned_calories != null && (
-          <div className="mt-2 flex flex-wrap gap-x-2 gap-y-0.5">
-            <span className="text-[10px] text-muted-foreground">
-              {Math.round(Number(slot.planned_calories))} kcal
-            </span>
-            {slot.planned_protein_g != null && (
-              <span className="text-[10px] text-blue-600">
-                P: {Math.round(Number(slot.planned_protein_g))}g
-              </span>
-            )}
+              <div className="flex items-start gap-1">
+                <ChefHat className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium leading-tight line-clamp-2">
+                    {slot.recipe?.name ?? "Recipe removed"}
+                  </p>
+                  {slot.planned_servings !== 1 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {slot.planned_servings} servings
+                    </p>
+                  )}
+                  {slot.planned_calories != null && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {Math.round(Number(slot.planned_calories))} kcal
+                      {slot.planned_protein_g != null && (
+                        <span className="text-blue-600"> · P: {Math.round(Number(slot.planned_protein_g))}g</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </button>
           </div>
-        )}
+        ))}
+
+        {/* Add button */}
+        <button
+          onClick={openAdd}
+          disabled={loading}
+          className={cn(
+            "w-full flex items-center justify-center transition-colors rounded",
+            slots.length === 0
+              ? "min-h-[80px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/30"
+              : "py-1 text-muted-foreground/30 hover:text-muted-foreground hover:bg-muted/20"
+          )}
+        >
+          <Plus className={cn("transition-transform", slots.length === 0 ? "h-4 w-4" : "h-3 w-3")} />
+        </button>
       </div>
 
       {showPicker && (
         <RecipePicker
-          initialRecipeId={slot.planned_recipe_id ?? undefined}
-          initialServings={slot.planned_servings}
+          initialRecipeId={editingSlot?.planned_recipe_id ?? undefined}
+          initialServings={editingSlot?.planned_servings}
           onSelect={handleSelectRecipe}
-          onClose={() => setShowPicker(false)}
+          onClose={() => { setShowPicker(false); setEditingSlotId(null); }}
         />
       )}
     </>

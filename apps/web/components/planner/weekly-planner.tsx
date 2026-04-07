@@ -31,10 +31,13 @@ export function WeeklyPlanner({
   const [slots, setSlots] = useState<MealPlanSlotWithRecipe[]>(initialSlots);
   const [workouts, setWorkouts] = useState<WorkoutScheduleWithWorkout[]>(initialWorkouts);
 
-  // Slot lookup: date+mealType → slot
-  const slotMap = new Map<string, MealPlanSlotWithRecipe>();
+  // Slot lookup: date+mealType → slots[]
+  const slotMap = new Map<string, MealPlanSlotWithRecipe[]>();
   for (const slot of slots) {
-    slotMap.set(`${slot.date}::${slot.meal_type}`, slot);
+    const key = `${slot.date}::${slot.meal_type}`;
+    const existing = slotMap.get(key) ?? [];
+    existing.push(slot);
+    slotMap.set(key, existing);
   }
 
   const workoutMap = new Map<string, WorkoutScheduleWithWorkout[]>();
@@ -162,7 +165,7 @@ export function WeeklyPlanner({
             </div>
 
             {dates.map((date, i) => {
-              const slot = slotMap.get(`${date}::${mealType}`);
+              const daySlots = slotMap.get(`${date}::${mealType}`) ?? [];
               return (
                 <div
                   key={date}
@@ -174,14 +177,14 @@ export function WeeklyPlanner({
                   <MealSlotCell
                     date={date}
                     mealType={mealType}
-                    slot={slot}
+                    slots={daySlots}
                     userId={userId}
                     onUpdated={(updated) => {
                       setSlots((prev) => {
                         const filtered = prev.filter(
                           (s) => !(s.date === date && s.meal_type === mealType)
                         );
-                        return updated ? [...filtered, updated] : filtered;
+                        return [...filtered, ...updated];
                       });
                     }}
                   />
