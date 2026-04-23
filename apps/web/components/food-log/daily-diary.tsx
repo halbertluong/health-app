@@ -129,13 +129,8 @@ export function DailyDiary({ initialLogs, macroTargets, userId }: DailyDiaryProp
         })}
       </div>
 
-      {/* FAB */}
-      <button
-        onClick={() => openModal("snack")}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors flex items-center justify-center"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
+      {/* FAB — sits above the bottom nav on mobile with safe-area clearance */}
+      <Fab onClick={() => openModal("snack")} />
 
       {showModal && (
         <LogMealModal
@@ -144,6 +139,28 @@ export function DailyDiary({ initialLogs, macroTargets, userId }: DailyDiaryProp
           onClose={() => setShowModal(false)}
         />
       )}
+    </>
+  );
+}
+
+function Fab({ onClick }: { onClick: () => void }) {
+  return (
+    <>
+      {/* Mobile: above bottom nav + safe area */}
+      <button
+        onClick={onClick}
+        className="fixed right-4 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center md:hidden"
+        style={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 0.75rem)" }}
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+      {/* Desktop: fixed bottom-right corner */}
+      <button
+        onClick={onClick}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center hidden md:flex"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </>
   );
 }

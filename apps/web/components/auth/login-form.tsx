@@ -8,13 +8,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 
+// Use NEXT_PUBLIC_SITE_URL so OAuth redirects work from any device (mobile, LAN, production).
+// Without it Supabase falls back to its configured Site URL (localhost:3000) which
+// doesn't resolve on a phone accessing the app over the local network.
+function getRedirectBase() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (siteUrl) return siteUrl;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+}
+
 function GoogleButton({ onError }: { onError: (msg: string) => void }) {
   async function handleClick() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${getRedirectBase()}/auth/callback`,
       },
     });
     if (error) onError(error.message);
@@ -24,9 +34,9 @@ function GoogleButton({ onError }: { onError: (msg: string) => void }) {
     <button
       type="button"
       onClick={handleClick}
-      className="w-full flex items-center justify-center gap-3 border border-border rounded-xl py-2.5 text-sm font-medium bg-white hover:bg-gray-50 transition-colors text-foreground shadow-sm"
+      className="w-full flex items-center justify-center gap-3 border border-border rounded-xl py-3 text-base font-medium bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors text-foreground shadow-sm"
     >
-      <svg className="h-4 w-4" viewBox="0 0 24 24">
+      <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -66,7 +76,7 @@ export function LoginForm() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/planner");
+      router.push("/log");
       router.refresh();
     }
   }
@@ -102,7 +112,7 @@ export function LoginForm() {
             autoComplete="email"
             placeholder="you@example.com"
             {...register("email")}
-            className="w-full rounded-xl border border-input bg-white px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+            className="w-full rounded-xl border border-input bg-white px-3.5 py-3 text-base placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
           />
           {errors.email && (
             <p className="text-destructive text-xs">{errors.email.message}</p>
@@ -110,18 +120,16 @@ export function LoginForm() {
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-foreground" htmlFor="password">
-              Password
-            </label>
-          </div>
+          <label className="text-sm font-medium text-foreground" htmlFor="password">
+            Password
+          </label>
           <input
             id="password"
             type="password"
             autoComplete="current-password"
             placeholder="••••••••"
             {...register("password")}
-            className="w-full rounded-xl border border-input bg-white px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+            className="w-full rounded-xl border border-input bg-white px-3.5 py-3 text-base placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
           />
           {errors.password && (
             <p className="text-destructive text-xs">{errors.password.message}</p>
@@ -129,7 +137,7 @@ export function LoginForm() {
         </div>
 
         {error && (
-          <div className="rounded-xl bg-destructive/8 border border-destructive/20 text-destructive text-sm px-3.5 py-2.5">
+          <div className="rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm px-3.5 py-2.5">
             {error}
           </div>
         )}
@@ -137,9 +145,9 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+          className="w-full bg-primary text-primary-foreground rounded-xl py-3 text-base font-semibold hover:bg-primary/90 active:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
         >
-          {loading ? "Signing in..." : "Sign in"}
+          {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
 

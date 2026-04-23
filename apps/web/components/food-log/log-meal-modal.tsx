@@ -234,7 +234,7 @@ export function LogMealModal({ onLogged, onClose, defaultMealType = "breakfast" 
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Describe what you ate… e.g. 'grilled chicken breast with white rice and steamed broccoli'"
-                    className="w-full h-28 px-3 py-2 rounded-xl border bg-muted/30 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+                    className="w-full h-28 px-3 py-2 rounded-xl border bg-muted/30 text-base resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                   />
 
                   {/* Photo upload */}
